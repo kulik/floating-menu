@@ -15,7 +15,14 @@
     <declare-styleable name="AddFloatingActionButton">
         <attr name="fab_plusIconColor" format="color"/>
     </declare-styleable>
-    <!--<declare-styleable name="FloatingRadialMenu">-->
+    <declare-styleable name="FloatingRadialMenu">
+        <attr name="fab_addButtonAnimation" format="enum">
+            <enum name="rotate" value="0"/>
+            <enum name="swirl" value="1"/>
+        </attr>
+
+        <attr name="fab_addDrawableExpanded" format="reference"/>
+        <attr name="fab_addDrawableCollapsed" format="reference"/>
         <!--<attr name="fab_addButtonColorPressed" format="color"/>-->
         <!--<attr name="fab_addButtonColorNormal" format="color"/>-->
         <!--<attr name="fab_addButtonSize" format="enum">-->
@@ -31,7 +38,7 @@
             <!--<enum name="left" value="2"/>-->
             <!--<enum name="right" value="3"/>-->
         <!--</attr>-->
-    <!--</declare-styleable>-->
+    </declare-styleable>
     <declare-styleable name="FloatingActionsMenu">
         <attr name="fab_addButtonColorPressed" format="color"/>
         <attr name="fab_addButtonColorNormal" format="color"/>

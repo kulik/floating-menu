@@ -2,14 +2,21 @@ package com.tac.kulik.floatingarcmenu;
 
 import android.animation.AnimatorSet;
 import android.animation.ObjectAnimator;
+import android.animation.PropertyValuesHolder;
 import android.content.Context;
 import android.content.res.TypedArray;
 import android.graphics.Canvas;
+import android.graphics.Color;
+import android.graphics.Paint;
+import android.graphics.drawable.ColorDrawable;
 import android.graphics.drawable.Drawable;
 import android.graphics.drawable.LayerDrawable;
+import android.graphics.drawable.ShapeDrawable;
+import android.graphics.drawable.shapes.Shape;
 import android.os.Parcel;
 import android.os.Parcelable;
 import android.support.annotation.ColorRes;
+import android.support.annotation.DrawableRes;
 import android.support.annotation.NonNull;
 import android.util.AttributeSet;
 import android.view.ContextThemeWrapper;
@@ -26,6 +33,12 @@ public class FloatingRadialMenu extends ViewGroup {
     private static final int ANIMATION_DURATION = 300;
     private static final float COLLAPSED_PLUS_ROTATION = 0f;
     private static final float EXPANDED_PLUS_ROTATION = 90f + 45f;
+    private static final float EXPANDED_ROTATION = 0f;
+    private static final float COLLAPSED_SCALE = 0.5f;
+    private static final float EXPANDED_SCALE = 1f;
+    private static final int ROTATE = 0;
+    private static final int SWIRL = 1;
+//    private static final int ALPHA = 1;
 
     private int mAddButtonPlusColor;
     private int mAddButtonColorNormal;
@@ -42,20 +55,25 @@ public class FloatingRadialMenu extends ViewGroup {
     private float mPadding = 0f;
 
     private boolean mExpanded;
-
-    private AnimatorSet mExpandAnimation = new AnimatorSet().setDuration(ANIMATION_DURATION);
-    private AnimatorSet mCollapseAnimation = new AnimatorSet().setDuration(ANIMATION_DURATION);
+ private AnimatorSet mExpandAnimation = new AnimatorSet();
+    private AnimatorSet mCollapseAnimation = new AnimatorSet();
     private AddFloatingActionButton mAddButton;
-    private RotatingDrawable mRotatingDrawable;
-    private int mMaxButtonWidth;
-    private int mMaxButtonHeight;
     private int mLabelsStyle;
     private int mButtonsCount;
 
     private OnFloatingActionsMenuUpdateListener mListener;
-    private boolean mAlignLeft;
-    private boolean mAlignDown;
     private double mRadius;
+    private int mAddButtonAnimation = 1;
+
+    @DrawableRes
+    private int mAddDrawableExpandedId;
+
+    @DrawableRes
+    private int mAddDrawableCollapsedId;
+
+    private Drawable mAddDrawableExpanded;
+    private Drawable mAddDrawableCollapsed;
+
 
     public interface OnFloatingActionsMenuUpdateListener {
         void onMenuExpanded();
@@ -82,13 +100,19 @@ public class FloatingRadialMenu extends ViewGroup {
         mLabelsMargin = getResources().getDimensionPixelSize(R.dimen.fab_labels_margin);
         mLabelsVerticalOffset = getResources().getDimensionPixelSize(R.dimen.fab_shadow_offset);
 //
-        TypedArray attr = context.obtainStyledAttributes(attributeSet, R.styleable.FloatingActionsMenu, 0, 0);
+        TypedArray attr = context.obtainStyledAttributes(attributeSet, R.styleable.FloatingActionsMenu);
         mAddButtonPlusColor = attr.getColor(R.styleable.FloatingActionsMenu_fab_addButtonPlusIconColor, getColor(android.R.color.white));
         mAddButtonColorNormal = attr.getColor(R.styleable.FloatingActionsMenu_fab_addButtonColorNormal, getColor(android.R.color.holo_blue_dark));
         mAddButtonColorPressed = attr.getColor(R.styleable.FloatingActionsMenu_fab_addButtonColorPressed, getColor(android.R.color.holo_blue_light));
         mAddButtonSize = attr.getInt(R.styleable.FloatingActionsMenu_fab_addButtonSize, FloatingActionButton.SIZE_NORMAL);
         mAddButtonStrokeVisible = attr.getBoolean(R.styleable.FloatingActionsMenu_fab_addButtonStrokeVisible, true);
         mLabelsStyle = attr.getResourceId(R.styleable.FloatingActionsMenu_fab_labelStyle, 0);
+        attr.recycle();
+
+        attr = context.obtainStyledAttributes(attributeSet, R.styleable.FloatingRadialMenu);
+        mAddButtonAnimation = attr.getInt(R.styleable.FloatingRadialMenu_fab_addButtonAnimation, ROTATE);
+        mAddDrawableCollapsedId = attr.getResourceId(R.styleable.FloatingRadialMenu_fab_addDrawableCollapsed, 0);
+        mAddDrawableExpandedId = attr.getResourceId(R.styleable.FloatingRadialMenu_fab_addDrawableExpanded, 0);
         attr.recycle();
 
 //        if (mLabelsStyle != 0 && expandsHorizontally()) {
@@ -102,12 +126,29 @@ public class FloatingRadialMenu extends ViewGroup {
         mListener = listener;
     }
 
-    private static class RotatingDrawable extends LayerDrawable {
-        public RotatingDrawable(Drawable drawable) {
-            super(new Drawable[]{drawable});
+    private class RotatingScaleDrawable extends LayerDrawable {
+
+        public RotatingScaleDrawable(Drawable... drawable) {
+            super(drawable);
+//            mDrawable = drawable;
+
         }
 
+//        private final Drawable[] mDrawable;
         private float mRotation;
+        private float mScale = 1f;
+        private int mExpand = 1;
+
+        @SuppressWarnings("UnusedDeclaration")
+        public float getScale() {
+            return mScale;
+        }
+
+        @SuppressWarnings("UnusedDeclaration")
+        public void setScale(float scale) {
+            mScale = scale;
+            invalidateSelf();
+        }
 
         @SuppressWarnings("UnusedDeclaration")
         public float getRotation() {
@@ -120,17 +161,27 @@ public class FloatingRadialMenu extends ViewGroup {
             invalidateSelf();
         }
 
+        public void setOrder(int expand) {
+            mExpand = expand;
+
+//            setLayerInset(mExpand ? 0 : 1, 100, 100, 100, 100);
+//            setLayerInset(mExpand ? 1 : 0, 0, 0, 0, 0);
+            invalidateSelf();
+        }
+
         @Override
         public void draw(Canvas canvas) {
             canvas.save();
             canvas.rotate(mRotation, getBounds().centerX(), getBounds().centerY());
-            super.draw(canvas);
+            canvas.scale(mScale, mScale, getBounds().centerX(), getBounds().centerY());
+            (mExpand == 0 ? getExpandedIconDrawable() : getCollapsedIconDrawable()).draw(canvas);
+//            super.draw(canvas);
             canvas.restore();
         }
     }
 
     private void createAddButton(Context context) {
-        mAddButton = new AddFloatingActionButton(context){
+        mAddButton = new AddFloatingActionButton(context) {
             @Override
             public void updateBackground() {
                 mPlusColor = mAddButtonPlusColor;
@@ -142,21 +193,63 @@ public class FloatingRadialMenu extends ViewGroup {
 
             @Override
             public Drawable getIconDrawable() {
-                final RotatingDrawable rotatingDrawable = new RotatingDrawable(super.getIconDrawable());
-                mRotatingDrawable = rotatingDrawable;
+                switch (mAddButtonAnimation) {
+                    case ROTATE: {
+                        final RotatingScaleDrawable rotatingDrawable = new RotatingScaleDrawable(super.getIconDrawable());
 
-                final OvershootInterpolator interpolator = new OvershootInterpolator();
+                        final OvershootInterpolator interpolator = new OvershootInterpolator();
 
-                final ObjectAnimator collapseAnimator = ObjectAnimator.ofFloat(rotatingDrawable, "rotation", EXPANDED_PLUS_ROTATION, COLLAPSED_PLUS_ROTATION);
-                final ObjectAnimator expandAnimator = ObjectAnimator.ofFloat(rotatingDrawable, "rotation", COLLAPSED_PLUS_ROTATION, EXPANDED_PLUS_ROTATION);
+                        final ObjectAnimator collapseAnimator = ObjectAnimator.ofFloat(rotatingDrawable, "rotation", EXPANDED_PLUS_ROTATION, COLLAPSED_PLUS_ROTATION);
+                        final ObjectAnimator expandAnimator = ObjectAnimator.ofFloat(rotatingDrawable, "rotation", COLLAPSED_PLUS_ROTATION, EXPANDED_PLUS_ROTATION);
 
-                collapseAnimator.setInterpolator(interpolator);
-                expandAnimator.setInterpolator(interpolator);
+                        collapseAnimator.setInterpolator(interpolator);
+                        expandAnimator.setInterpolator(interpolator);
 
-                mExpandAnimation.play(expandAnimator);
-                mCollapseAnimation.play(collapseAnimator);
+                        mExpandAnimation.setDuration(ANIMATION_DURATION).play(expandAnimator);
+                        mCollapseAnimation.setDuration(ANIMATION_DURATION).play(collapseAnimator);
 
-                return rotatingDrawable;
+                        return rotatingDrawable;
+                    }
+                    case SWIRL: {
+                        final RotatingScaleDrawable rotatingScaleDrawable = new RotatingScaleDrawable(getExpandedIconDrawable(), getCollapsedIconDrawable());
+//                        final RotatingScaleDrawable expandedDrawable = new RotatingScaleDrawable(getExpandedIconDrawable());
+
+//                        mRotatingDrawable = rotatingDrawable;
+
+                        final OvershootInterpolator interpolator = new OvershootInterpolator();
+                        ObjectAnimator collapse = ObjectAnimator.ofPropertyValuesHolder(rotatingScaleDrawable,
+                               PropertyValuesHolder.ofFloat("rotation", EXPANDED_PLUS_ROTATION, COLLAPSED_PLUS_ROTATION),
+                                PropertyValuesHolder.ofFloat("scale", EXPANDED_SCALE, COLLAPSED_SCALE))
+                                .setDuration(ANIMATION_DURATION);
+                        ObjectAnimator collapseEx = ObjectAnimator.ofPropertyValuesHolder(rotatingScaleDrawable,
+                               PropertyValuesHolder.ofFloat("rotation", EXPANDED_PLUS_ROTATION + 180f, COLLAPSED_PLUS_ROTATION),
+                                PropertyValuesHolder.ofFloat("scale", EXPANDED_SCALE, COLLAPSED_SCALE))
+                                .setDuration(ANIMATION_DURATION);
+                        ObjectAnimator expand = ObjectAnimator.ofPropertyValuesHolder(rotatingScaleDrawable,
+                                PropertyValuesHolder.ofFloat("rotation", COLLAPSED_PLUS_ROTATION, EXPANDED_PLUS_ROTATION),
+                                PropertyValuesHolder.ofFloat("scale", COLLAPSED_SCALE, EXPANDED_SCALE))
+                                .setDuration(ANIMATION_DURATION);
+                        ObjectAnimator expandEx = ObjectAnimator.ofPropertyValuesHolder(rotatingScaleDrawable,
+                                PropertyValuesHolder.ofFloat("rotation", COLLAPSED_PLUS_ROTATION, EXPANDED_ROTATION + 360f),
+                                PropertyValuesHolder.ofFloat("scale", COLLAPSED_SCALE, EXPANDED_SCALE))
+                                .setDuration(ANIMATION_DURATION);
+                        final ObjectAnimator expandChDrawAnimator = ObjectAnimator.ofInt(rotatingScaleDrawable, "order", 1, 0);
+                        final ObjectAnimator collapseChDrawAnimator = ObjectAnimator.ofInt(rotatingScaleDrawable, "order", 0, 1);
+
+                        collapse.setInterpolator(interpolator);
+                        expand.setInterpolator(interpolator);
+                        expandChDrawAnimator.setInterpolator(interpolator);
+                        collapseChDrawAnimator.setInterpolator(interpolator);
+                        expandChDrawAnimator.setDuration(0);
+                        collapseChDrawAnimator.setDuration(0);
+                        mCollapseAnimation.playSequentially(collapse, collapseChDrawAnimator, expandEx);
+                        mExpandAnimation.playSequentially(collapseEx, expandChDrawAnimator, expand);
+
+                        return rotatingScaleDrawable;
+                    }
+
+                }
+                return null;
             }
         };
 
@@ -211,6 +304,10 @@ public class FloatingRadialMenu extends ViewGroup {
         setMeasuredDimension(width, width);
     }
 
+    public AddFloatingActionButton getAddButton() {
+        return mAddButton;
+    }
+
     private View getNonAddButton() {
         for (int i = 0; i < mButtonsCount; i++) {
             final View child = getChildAt(i);
@@ -244,21 +341,21 @@ public class FloatingRadialMenu extends ViewGroup {
             int childY = (int) (centerY - mRadius * Math.sin(sectorPiceRad * i));
             child.layout(childX - child.getMeasuredWidth() / 2, childY - child.getMeasuredHeight() / 2, childX + child.getMeasuredWidth() / 2, childY + child.getMeasuredHeight() / 2);
 
-                    float collapsedTranslationX = centerX - childX;
-                    float collapsedTranslationY = centerY - childY;
-                    float expandedTranslationX = 0;
-                    float expandedTranslationY = 0;
+            float collapsedTranslationX = centerX - childX;
+            float collapsedTranslationY = centerY - childY;
+            float expandedTranslationX = 0;
+            float expandedTranslationY = 0;
 //
-                    child.setTranslationY(mExpanded ? expandedTranslationY : collapsedTranslationY);
-                    child.setTranslationX(mExpanded ? expandedTranslationX : collapsedTranslationX);
-                    child.setAlpha(mExpanded ? 1f : 0f);
+            child.setTranslationY(mExpanded ? expandedTranslationY : collapsedTranslationY);
+            child.setTranslationX(mExpanded ? expandedTranslationX : collapsedTranslationX);
+            child.setAlpha(mExpanded ? 1f : 0f);
 //
-                    LayoutParams params = (LayoutParams) child.getLayoutParams();
-                    params.mCollapseDirX.setFloatValues(expandedTranslationX, collapsedTranslationX);
-                    params.mCollapseDirY.setFloatValues(expandedTranslationY, collapsedTranslationY);
-                    params.mExpandDirX.setFloatValues(collapsedTranslationX, expandedTranslationX);
-                    params.mExpandDirY.setFloatValues(collapsedTranslationY, expandedTranslationY);
-                    params.setAnimationsTarget(child);
+            LayoutParams params = (LayoutParams) child.getLayoutParams();
+            params.mCollapseDirX.setFloatValues(expandedTranslationX, collapsedTranslationX);
+            params.mCollapseDirY.setFloatValues(expandedTranslationY, collapsedTranslationY);
+            params.mExpandDirX.setFloatValues(collapsedTranslationX, expandedTranslationX);
+            params.mExpandDirY.setFloatValues(collapsedTranslationY, expandedTranslationY);
+            params.setAnimationsTarget(child);
 
 //                    nextY = expandUp ?
 //                            childY - mButtonSpacing :
@@ -303,7 +400,7 @@ public class FloatingRadialMenu extends ViewGroup {
 
         public LayoutParams(ViewGroup.LayoutParams source) {
             super(source);
-
+//TODO refactor it to ViewHolerProperty...
             mExpandDirX.setInterpolator(sExpandInterpolator);
             mExpandDirY.setInterpolator(sExpandInterpolator);
             mExpandAlpha.setInterpolator(sAlphaExpandInterpolator);
@@ -432,6 +529,61 @@ public class FloatingRadialMenu extends ViewGroup {
         } else {
             super.onRestoreInstanceState(state);
         }
+    }
+
+
+    Drawable getExpandedIconDrawable() {
+        if (mAddDrawableExpanded != null) {
+            return mAddDrawableExpanded;
+        } else if (mAddDrawableExpandedId != 0) {
+            return getResources().getDrawable(mAddDrawableExpandedId);
+        } else {
+
+            final float iconSize = getResources().getDimension(R.dimen.fab_icon_size);
+            final float iconHalfSize = iconSize / 2f;
+
+            final float plusSize = getResources().getDimension(R.dimen.fab_plus_icon_size);
+            final float plusHalfStroke = getResources().getDimension(R.dimen.fab_plus_icon_stroke) / 2f;
+            final float plusOffset = (iconSize - plusSize) / 2f;
+
+            final Shape shape = new Shape() {
+                @Override
+                public void draw(Canvas canvas, Paint paint) {
+                    canvas.drawRect(plusOffset, iconHalfSize - plusHalfStroke, iconSize - plusOffset, iconHalfSize + plusHalfStroke, paint);
+                    canvas.drawRect(iconHalfSize - plusHalfStroke, plusOffset, iconHalfSize + plusHalfStroke, iconSize - plusOffset, paint);
+                }
+            };
+
+            ShapeDrawable drawable = new ShapeDrawable(shape);
+
+            final Paint paint = drawable.getPaint();
+            paint.setColor(mAddButtonPlusColor);
+            paint.setStyle(Paint.Style.FILL);
+            paint.setAntiAlias(true);
+            mAddDrawableExpanded = drawable;
+            return drawable;
+//            return new ColorDrawable(Color.TRANSPARENT);
+        }
+    }
+
+    Drawable getCollapsedIconDrawable() {
+        if (mAddDrawableCollapsed != null) {
+            return mAddDrawableCollapsed;
+        } else if (mAddDrawableCollapsedId != 0) {
+            return getResources().getDrawable(mAddDrawableCollapsedId);
+        } else {
+            return new ColorDrawable(Color.TRANSPARENT);
+        }
+    }
+
+    public void setAddDrawableExpanded(Drawable addDrawableExpanded) {
+        mAddDrawableExpanded = addDrawableExpanded;
+        mAddButton.updateBackground();
+    }
+
+    public void setAddDrawableCollapsed(Drawable addDrawableCollapsed) {
+        mAddDrawableCollapsed = addDrawableCollapsed;
+        mAddButton.updateBackground();
     }
 
     public static class SavedState extends BaseSavedState {
