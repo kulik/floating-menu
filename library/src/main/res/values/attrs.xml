@@ -47,8 +47,9 @@
             <enum name="mini" value="1"/>
         </attr>
         <attr name="fab_addButtonPlusIconColor" format="color"/>
-        <attr name="fab_addButtonStrokeVisible" format="boolean"/>
+        <attr name="fab_addButtonStrokeVisible" format="integer"/>
         <attr name="fab_labelStyle" format="reference"/>
+        <attr name="fab_dp_size" format="dimension"/>
         <attr name="fab_expandDirection" format="enum">
             <enum name="up" value="0"/>
             <enum name="down" value="1"/>

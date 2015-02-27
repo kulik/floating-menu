@@ -49,9 +49,9 @@ public class FloatingActionButton extends ImageButton {
   @DrawableRes
   private int mIcon;
   private Drawable mIconDrawable;
-  private int mSize;
+  protected int mSize;
 
-  private float mCircleSize;
+  protected float mCircleSize;
   private float mShadowRadius;
   private float mShadowOffset;
   private int mDrawableSize;
@@ -90,7 +90,7 @@ public class FloatingActionButton extends ImageButton {
     updateBackground();
   }
 
-  private void updateDrawableSize() {
+  protected void updateDrawableSize() {
     mDrawableSize = (int) (mCircleSize + 2 * mShadowRadius);
   }
 
