@@ -13,6 +13,7 @@ import android.os.Parcelable;
 import android.support.annotation.ColorRes;
 import android.support.annotation.NonNull;
 import android.util.AttributeSet;
+import android.util.TypedValue;
 import android.view.ContextThemeWrapper;
 import android.view.View;
 import android.view.ViewGroup;
@@ -482,7 +483,7 @@ public class FloatingActionsMenu extends ViewGroup {
             TextView label = new TextView(context);
 
             label.setText(button.getTitle());
-            label.setTextSize(mTextSize);
+            label.setTextSize(TypedValue.COMPLEX_UNIT_PX, mTextSize);
             if (mTypeFace != null) {
                 label.setTypeface(mTypeFace);
             }
