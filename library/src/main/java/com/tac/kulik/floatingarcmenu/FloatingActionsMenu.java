@@ -51,6 +51,8 @@ public class FloatingActionsMenu extends ViewGroup {
     private int mLabelsVerticalOffset;
 
     private boolean mExpanded;
+    // used to disable expanding
+    private boolean isExpandNeeded = true;
 
     private AnimatorSet mExpandAnimation = new AnimatorSet().setDuration(ANIMATION_DURATION);
     private AnimatorSet mCollapseAnimation = new AnimatorSet().setDuration(ANIMATION_DURATION);
@@ -64,6 +66,7 @@ public class FloatingActionsMenu extends ViewGroup {
     private int mTextFont;
 
     private OnFloatingActionsMenuUpdateListener mListener;
+    private OnClickListener mOnClickListener;
 
     public interface OnFloatingActionsMenuUpdateListener {
         void onMenuExpanded();
@@ -121,6 +124,11 @@ public class FloatingActionsMenu extends ViewGroup {
 
     public void setOnFloatingActionsMenuUpdateListener(OnFloatingActionsMenuUpdateListener listener) {
         mListener = listener;
+    }
+
+    @Override
+    public void setOnClickListener(OnClickListener onClickListener) {
+        mOnClickListener = onClickListener;
     }
 
     private boolean expandsHorizontally() {
@@ -191,6 +199,9 @@ public class FloatingActionsMenu extends ViewGroup {
             @Override
             public void onClick(View v) {
                 toggle();
+                if (mOnClickListener != null) {
+                    mOnClickListener.onClick(v);
+                }
             }
         });
 
@@ -508,10 +519,12 @@ public class FloatingActionsMenu extends ViewGroup {
     }
 
     public void toggle() {
-        if (mExpanded) {
-            collapse();
-        } else {
-            expand();
+        if (isExpandNeeded) {
+            if (mExpanded) {
+                collapse();
+            } else {
+                expand();
+            }
         }
     }
 
@@ -586,5 +599,13 @@ public class FloatingActionsMenu extends ViewGroup {
                 return new SavedState[size];
             }
         };
+    }
+
+    public boolean isExpandNeeded() {
+        return isExpandNeeded;
+    }
+
+    public void setExpandNeeded(boolean isExpandNeeded) {
+        this.isExpandNeeded = isExpandNeeded;
     }
 }
